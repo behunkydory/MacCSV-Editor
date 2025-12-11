@@ -17,7 +17,8 @@ import {
   Redo,
   Search,
   CheckCircle2,
-  GitCompare
+  GitCompare,
+  AlertTriangle
 } from 'lucide-react';
 
 interface AppState {
@@ -50,6 +51,9 @@ const App: React.FC = () => {
   const [useRegex, setUseRegex] = useState(false);
   const [matches, setMatches] = useState<{r: number, c: number}[]>([]);
   const [currentMatchIdx, setCurrentMatchIdx] = useState(0);
+  
+  // Navigation Confirmation State
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // --- Dirty Check Logic ---
   useEffect(() => {
@@ -317,19 +321,46 @@ const App: React.FC = () => {
   };
 
   const appendRow = () => {
-    if (data.length === 0) return;
+    if (data.length === 0) {
+      handleStateChange({ data: [['']] }); // Initialize with 1 cell if empty
+      return;
+    }
     const newRow = new Array(data[0].length).fill('');
     handleStateChange({ data: [...data, newRow] });
   };
 
   const appendColumn = () => {
-    if (data.length === 0) return;
+    if (data.length === 0) {
+      handleStateChange({ data: [['']] }); // Initialize with 1 cell if empty
+      return;
+    }
     const newData = data.map(row => [...row, '']);
     handleStateChange({ data: newData });
   };
 
+  // --- Reset / Navigation Handlers ---
+
+  const handleReset = useCallback(() => {
+    setData([]);
+    setInitialDataStr('');
+    setFilename('untitled.csv');
+    setHistory({ past: [], future: [] });
+    setFreezeRow(null);
+    setFreezeCol(null);
+    setIsDirty(false);
+    setShowResetConfirm(false);
+  }, []);
+
+  const handleBackRequest = () => {
+    if (isDirty) {
+      setShowResetConfirm(true);
+    } else {
+      handleReset();
+    }
+  };
+
   return (
-    <div className="h-screen w-screen flex flex-col bg-[#f5f5f7] text-gray-900 font-sans">
+    <div className="h-screen w-screen flex flex-col bg-[#f5f5f7] text-gray-900 font-sans relative">
       {/* Header */}
       <header className="bg-white/80 backdrop-blur-md border-b border-gray-200 h-16 flex items-center justify-between px-6 sticky top-0 z-30">
         <div className="flex items-center gap-4">
@@ -339,7 +370,7 @@ const App: React.FC = () => {
           <div className="flex flex-col">
              <div className="flex items-center gap-2">
                <h1 className="font-semibold text-gray-800 text-sm">{filename}</h1>
-               {data.length > 0 && (
+               {initialDataStr ? (
                   isDirty ? (
                     <span className="flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 border border-amber-200">
                       <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -351,54 +382,53 @@ const App: React.FC = () => {
                       Original
                     </span>
                   )
-               )}
+               ) : null}
              </div>
              <p className="text-xs text-gray-500">MacCSV Editor</p>
           </div>
         </div>
 
-        {data.length > 0 && (
-          <div className="flex items-center gap-2">
-             <div className="flex bg-gray-100 rounded-lg p-0.5 mr-2">
-                <button 
-                  onClick={handleUndo} 
-                  disabled={history.past.length === 0}
-                  className="p-1.5 rounded hover:bg-white text-gray-600 disabled:text-gray-300 disabled:hover:bg-transparent transition-all shadow-sm disabled:shadow-none"
-                  title="Undo (Cmd+Z)"
-                >
-                  <Undo size={14} />
-                </button>
-                <button 
-                  onClick={handleRedo} 
-                  disabled={history.future.length === 0}
-                  className="p-1.5 rounded hover:bg-white text-gray-600 disabled:text-gray-300 disabled:hover:bg-transparent transition-all shadow-sm disabled:shadow-none"
-                  title="Redo (Cmd+Y)"
-                >
-                  <Redo size={14} />
-                </button>
-             </div>
+        {/* Toolbar - Now always visible even if data is empty, so users can add rows back */}
+        <div className="flex items-center gap-2">
+            <div className="flex bg-gray-100 rounded-lg p-0.5 mr-2">
+              <button 
+                onClick={handleUndo} 
+                disabled={history.past.length === 0}
+                className="p-1.5 rounded hover:bg-white text-gray-600 disabled:text-gray-300 disabled:hover:bg-transparent transition-all shadow-sm disabled:shadow-none"
+                title="Undo (Cmd+Z)"
+              >
+                <Undo size={14} />
+              </button>
+              <button 
+                onClick={handleRedo} 
+                disabled={history.future.length === 0}
+                className="p-1.5 rounded hover:bg-white text-gray-600 disabled:text-gray-300 disabled:hover:bg-transparent transition-all shadow-sm disabled:shadow-none"
+                title="Redo (Cmd+Y)"
+              >
+                <Redo size={14} />
+              </button>
+            </div>
 
-             <Button onClick={() => setShowFind(true)} variant="ghost" icon={<Search size={14} />}>Find</Button>
-             
-             <div className="h-6 w-px bg-gray-200 mx-1"></div>
-             
-             <Button onClick={appendRow} variant="ghost" icon={<Rows size={14} />}>Add Row</Button>
-             <Button onClick={appendColumn} variant="ghost" icon={<Columns size={14} />}>Add Col</Button>
-             
-             <div className="h-6 w-px bg-gray-200 mx-2"></div>
-             
-             {/* Diff Button */}
-             <Button 
-               onClick={() => setIsDiffOpen(true)}
-               variant="secondary"
-               icon={<GitCompare size={16} />}
-             >
-               Diff
-             </Button>
+            <Button onClick={() => setShowFind(true)} variant="ghost" icon={<Search size={14} />}>Find</Button>
+            
+            <div className="h-6 w-px bg-gray-200 mx-1"></div>
+            
+            <Button onClick={appendRow} variant="ghost" icon={<Rows size={14} />}>Add Row</Button>
+            <Button onClick={appendColumn} variant="ghost" icon={<Columns size={14} />}>Add Col</Button>
+            
+            <div className="h-6 w-px bg-gray-200 mx-2"></div>
+            
+            <Button 
+              onClick={() => setIsDiffOpen(true)}
+              variant="secondary"
+              icon={<GitCompare size={16} />}
+              disabled={data.length === 0 && !initialDataStr}
+            >
+              Diff
+            </Button>
 
-             <Button onClick={handleDownload} variant="primary" icon={<Download size={16} />}>Export</Button>
-          </div>
-        )}
+            <Button onClick={handleDownload} variant="primary" icon={<Download size={16} />}>Export</Button>
+        </div>
       </header>
 
       {/* Main Content */}
@@ -423,13 +453,21 @@ const App: React.FC = () => {
 
         {data.length === 0 ? (
           <div className="max-w-2xl mx-auto mt-20">
-            <DropZone onFileLoaded={handleFileLoad} />
+             {/* If we have a filename but no data (e.g. user deleted all), show empty state but keep editor mounted usually or show helper */}
+             {initialDataStr ? (
+                 <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4">
+                    <p>No rows. Add a row to start editing.</p>
+                    <Button onClick={appendRow} variant="secondary" icon={<Plus size={14} />}>Add First Row</Button>
+                 </div>
+             ) : (
+                <DropZone onFileLoaded={handleFileLoad} />
+             )}
           </div>
         ) : (
           <div className="h-full max-w-7xl mx-auto flex flex-col gap-4">
              <div className="flex items-center justify-between">
                 <button 
-                  onClick={() => setData([])} 
+                  onClick={handleBackRequest}
                   className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors"
                 >
                   <ArrowLeft size={16} /> Back to Upload
@@ -461,6 +499,37 @@ const App: React.FC = () => {
         />
 
       </main>
+
+      {/* Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[150] flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl p-6 w-80 flex flex-col gap-4 animate-in zoom-in-95 duration-200">
+             <div className="flex flex-col gap-2 items-center text-center">
+               <div className="w-12 h-12 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center mb-1">
+                 <AlertTriangle size={24} />
+               </div>
+               <h3 className="font-semibold text-gray-900 text-lg">Unsaved Changes</h3>
+               <p className="text-sm text-gray-500 leading-relaxed">
+                 You have unsaved changes in your current file. Going back will discard all your edits.
+               </p>
+             </div>
+             <div className="flex flex-col gap-2 mt-2">
+                <button 
+                  onClick={handleReset}
+                  className="w-full py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  Discard Changes
+                </button>
+                <button 
+                  onClick={() => setShowResetConfirm(false)}
+                  className="w-full py-2 bg-white hover:bg-gray-50 text-gray-700 border border-gray-200 rounded-lg font-medium transition-colors"
+                >
+                  Cancel
+                </button>
+             </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

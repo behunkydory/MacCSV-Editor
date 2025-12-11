@@ -45,7 +45,7 @@ export const FindReplaceBar: React.FC<FindReplaceBarProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-4 right-6 z-40 flex flex-col gap-2 bg-gray-900/95 backdrop-blur-md shadow-2xl border border-gray-700 rounded-xl p-3 w-80 animate-in fade-in slide-in-from-top-4 duration-200">
+    <div className="absolute top-4 right-6 z-[80] flex flex-col gap-2 bg-gray-900/95 backdrop-blur-md shadow-2xl border border-gray-700 rounded-xl p-3 w-80 animate-in fade-in slide-in-from-top-4 duration-200">
       
       {/* Header / Close */}
       <div className="flex items-center justify-between mb-1">

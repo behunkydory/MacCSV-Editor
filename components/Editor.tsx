@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { CSVData } from '../types';
 import { 
   Trash2, 
@@ -46,6 +46,11 @@ interface FilterMenuState {
   y: number;
 }
 
+interface Coordinate {
+  r: number;
+  c: number;
+}
+
 export const Editor: React.FC<EditorProps> = ({ 
   data, 
   onChange,
@@ -56,7 +61,13 @@ export const Editor: React.FC<EditorProps> = ({
   focusResult = null
 }) => {
   const [page, setPage] = useState(0);
-  const [editingCell, setEditingCell] = useState<{r: number, c: number} | null>(null); // r is original index
+  
+  // Selection State
+  const [selectionStart, setSelectionStart] = useState<Coordinate | null>(null);
+  const [selectionEnd, setSelectionEnd] = useState<Coordinate | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [editingCell, setEditingCell] = useState<Coordinate | null>(null); // r is original index
+
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [filterMenu, setFilterMenu] = useState<FilterMenuState | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -111,7 +122,7 @@ export const Editor: React.FC<EditorProps> = ({
   }, [filteredRows, freezeRow, page]);
 
 
-  // --- Auto-scroll ---
+  // --- Auto-scroll to search result ---
   useEffect(() => {
     if (focusResult) {
       const viewIndex = filteredRows.findIndex(item => item.originalIndex === focusResult.r);
@@ -120,20 +131,177 @@ export const Editor: React.FC<EditorProps> = ({
         if (targetPage !== page) {
           setPage(targetPage);
         }
+        // Also select the found result
+        setSelectionStart(focusResult);
+        setSelectionEnd(focusResult);
       }
     }
   }, [focusResult, page, filteredRows]);
 
-  // Close menus
+  // --- Global Event Listeners (Mouse Up & Keys) ---
   useEffect(() => {
-    const handleClick = () => {
+    const handleWindowMouseUp = () => {
+      setIsSelecting(false);
+    };
+
+    const handleClickOutside = () => {
       setContextMenu(null);
       setFilterMenu(null);
     };
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
+
+    window.addEventListener('mouseup', handleWindowMouseUp);
+    window.addEventListener('click', handleClickOutside);
+    return () => {
+      window.removeEventListener('mouseup', handleWindowMouseUp);
+      window.removeEventListener('click', handleClickOutside);
+    };
   }, []);
 
+  // --- Clipboard Events (Copy/Paste) ---
+  useEffect(() => {
+    const handleCopy = (e: ClipboardEvent) => {
+      // If editing a cell, allow native copy
+      if (editingCell) return;
+      // If no selection, do nothing
+      if (!selectionStart || !selectionEnd) return;
+
+      e.preventDefault(); // Prevent default copy
+
+      const minR = Math.min(selectionStart.r, selectionEnd.r);
+      const maxR = Math.max(selectionStart.r, selectionEnd.r);
+      const minC = Math.min(selectionStart.c, selectionEnd.c);
+      const maxC = Math.max(selectionStart.c, selectionEnd.c);
+
+      const rowsToCopy = [];
+      for (let r = minR; r <= maxR; r++) {
+        const rowData = [];
+        for (let c = minC; c <= maxC; c++) {
+          const val = data[r]?.[c] ?? '';
+          rowData.push(String(val).replace(/\t/g, ' '));
+        }
+        rowsToCopy.push(rowData.join('\t'));
+      }
+      const text = rowsToCopy.join('\n');
+      
+      if (e.clipboardData) {
+        e.clipboardData.setData('text/plain', text);
+      }
+    };
+
+    const handlePaste = (e: ClipboardEvent) => {
+      if (editingCell) return;
+      if (!selectionStart || !selectionEnd) return;
+
+      e.preventDefault();
+
+      const text = e.clipboardData?.getData('text');
+      if (!text) return;
+
+      const rows = text.split(/\r\n|\n|\r/).filter(r => r !== '');
+      if (rows.length === 0) return;
+
+      const minR = Math.min(selectionStart.r, selectionEnd.r);
+      const minC = Math.min(selectionStart.c, selectionEnd.c);
+
+      const newData = [...data];
+      
+      rows.forEach((rowStr, rOffset) => {
+        const targetR = minR + rOffset;
+        if (targetR >= newData.length) return; 
+
+        const cells = rowStr.split('\t');
+        const newRow = [...newData[targetR]];
+        
+        cells.forEach((cellVal, cOffset) => {
+          const targetC = minC + cOffset;
+          if (targetC < newRow.length) {
+            const numVal = Number(cellVal);
+            newRow[targetC] = (!isNaN(numVal) && cellVal.trim() !== '') ? numVal : cellVal;
+          }
+        });
+        newData[targetR] = newRow;
+      });
+      onChange(newData);
+    };
+
+    window.addEventListener('copy', handleCopy);
+    window.addEventListener('paste', handlePaste);
+    return () => {
+      window.removeEventListener('copy', handleCopy);
+      window.removeEventListener('paste', handlePaste);
+    };
+  }, [selectionStart, selectionEnd, editingCell, data, onChange]);
+
+
+  // --- Keyboard Shortcuts (Delete/Navigation) ---
+  useEffect(() => {
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      // If we are currently editing a cell, do not intercept these keys
+      if (editingCell) {
+        return;
+      }
+
+      if (!selectionStart || !selectionEnd) return;
+
+      const minR = Math.min(selectionStart.r, selectionEnd.r);
+      const maxR = Math.max(selectionStart.r, selectionEnd.r);
+      const minC = Math.min(selectionStart.c, selectionEnd.c);
+      const maxC = Math.max(selectionStart.c, selectionEnd.c);
+
+      // 1. DELETE / BACKSPACE
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const newData = [...data];
+        for (let r = minR; r <= maxR; r++) {
+          if (newData[r]) {
+            const newRow = [...newData[r]];
+            for (let c = minC; c <= maxC; c++) {
+              newRow[c] = '';
+            }
+            newData[r] = newRow;
+          }
+        }
+        onChange(newData);
+      }
+
+      // 2. ENTER (Start Editing)
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        setEditingCell({ r: minR, c: minC });
+      }
+
+      // 3. ARROW KEYS (Move Selection)
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+        e.preventDefault();
+        let newR = selectionStart.r;
+        let newC = selectionStart.c;
+
+        if (e.key === 'ArrowUp') newR = Math.max(0, newR - 1);
+        if (e.key === 'ArrowDown') newR = Math.min(data.length - 1, newR + 1);
+        if (e.key === 'ArrowLeft') newC = Math.max(0, newC - 1);
+        if (e.key === 'ArrowRight') newC = Math.min((data[0]?.length || 1) - 1, newC + 1);
+
+        // Check Pagination for Arrow Keys
+        const newPage = Math.floor(newR / ROWS_PER_PAGE);
+        if (newPage !== page) {
+          setPage(newPage);
+        }
+
+        setSelectionStart({ r: newR, c: newC });
+        // If Shift is held, we expand selectionEnd, else we move both
+        if (e.shiftKey) {
+            setSelectionEnd({ r: newR, c: newC }); 
+        } else {
+            setSelectionStart({ r: newR, c: newC });
+            setSelectionEnd({ r: newR, c: newC });
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectionStart, selectionEnd, editingCell, data, onChange, page]);
+
+  // Focus Input on Edit
   useEffect(() => {
     if (editingCell && inputRef.current) {
       inputRef.current.focus();
@@ -149,12 +317,16 @@ export const Editor: React.FC<EditorProps> = ({
     onChange(newData);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDownInput = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation(); // Stop global handlers
     if (e.key === 'Enter') {
+      // Explicitly save on Enter before closing
+      handleCellChange(editingCell!.r, editingCell!.c, e.currentTarget.value);
       setEditingCell(null);
     }
   };
 
+  // --- Sorting & Filtering ---
   const handleSort = (colIndex: number, direction: 'asc' | 'desc') => {
     const newData = [...data];
     newData.sort((a, b) => {
@@ -175,7 +347,6 @@ export const Editor: React.FC<EditorProps> = ({
     onChange(newData);
   };
 
-  // --- Filtering ---
   const getUniqueValues = (colIndex: number) => {
     const counts = new Map<string, number>();
     data.forEach(row => {
@@ -217,6 +388,7 @@ export const Editor: React.FC<EditorProps> = ({
     const insertIndex = position === 'before' ? targetIndex : targetIndex + 1;
     const newData = [...data];
     newData.splice(insertIndex, 0, newRow);
+    setActiveFilters({}); // Clear filters to make sure new row is visible
     onChange(newData);
   };
 
@@ -232,6 +404,7 @@ export const Editor: React.FC<EditorProps> = ({
       newRow.splice(insertIndex, 0, '');
       return newRow;
     });
+    setActiveFilters({}); // Clear filters since column structure changed
     onChange(newData);
   };
 
@@ -289,24 +462,52 @@ export const Editor: React.FC<EditorProps> = ({
   const startRowDisplay = page * ROWS_PER_PAGE + 1;
   const endRowDisplay = Math.min((page + 1) * ROWS_PER_PAGE, filteredRows.length);
 
-  // Sticky Positioning Logic
-  const getColStyle = (colIndex: number) => {
-    const isSticky = freezeCol !== null && colIndex <= freezeCol;
-    const leftOffset = ROW_HEADER_WIDTH + (colIndex * CELL_WIDTH);
-    return isSticky ? { position: 'sticky' as const, left: leftOffset, zIndex: 20 } : {};
+  // Selection Helper
+  const isCellSelected = (r: number, c: number) => {
+    if (!selectionStart || !selectionEnd) return false;
+    const minR = Math.min(selectionStart.r, selectionEnd.r);
+    const maxR = Math.max(selectionStart.r, selectionEnd.r);
+    const minC = Math.min(selectionStart.c, selectionEnd.c);
+    const maxC = Math.max(selectionStart.c, selectionEnd.c);
+    return r >= minR && r <= maxR && c >= minC && c <= maxC;
   };
 
-  const getRowStyle = (rowIndex: number) => {
-    // rowIndex is originalIndex. Check against freezeRow.
-    const isSticky = freezeRow !== null && rowIndex <= freezeRow;
-    const topOffset = HEADER_HEIGHT + (rowIndex * ROW_HEIGHT); 
-    return isSticky ? { position: 'sticky' as const, top: topOffset, zIndex: 30 } : {};
+  // --- Mouse Handlers for Selection ---
+  const handleCellMouseDown = (e: React.MouseEvent, r: number, c: number) => {
+    // Left click only
+    if (e.button !== 0) return;
+    
+    // If clicking inside the currently edited cell's input, allow default behavior (text selection)
+    if (editingCell?.r === r && editingCell?.c === c) {
+      return; 
+    }
+
+    // CRITICAL FIX: If we are clicking away from an active editor, the preventDefault() below 
+    // will stop the 'blur' event from firing on the input, preventing the save.
+    // We must manually blur the active element if it's an input.
+    if (document.activeElement instanceof HTMLInputElement) {
+        document.activeElement.blur();
+    }
+
+    // Prevent default to disable native text selection/drag on the grid structure
+    e.preventDefault(); 
+    
+    setIsSelecting(true);
+    setSelectionStart({ r, c });
+    setSelectionEnd({ r, c });
+    setEditingCell(null); // Close any active editor
+  };
+
+  const handleCellMouseEnter = (r: number, c: number) => {
+    if (isSelecting && selectionStart) {
+      setSelectionEnd({ r, c });
+    }
   };
 
   if (data.length === 0) return <div className="flex items-center justify-center h-64 text-gray-400">No data</div>;
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative">
+    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none">
       <div className="flex-1 overflow-auto custom-scrollbar relative">
         <table className="border-collapse text-sm text-left table-fixed w-max">
           <thead className="bg-gray-50 sticky top-0 z-50 shadow-sm h-10">
@@ -326,7 +527,7 @@ export const Editor: React.FC<EditorProps> = ({
                     onDrop={(e) => handleColDrop(e, colIndex)}
                     className={`
                       px-2 border-b border-r border-gray-200 font-semibold text-gray-700 w-40 h-10
-                      cursor-move transition-colors select-none relative group
+                      cursor-move transition-colors relative group
                       ${draggedColIndex === colIndex ? 'opacity-50 bg-gray-200' : 'bg-gray-50 hover:bg-gray-100'}
                       ${dragOverIndex === colIndex && draggedColIndex !== null ? 'border-l-2 border-l-blue-500' : ''}
                       ${isFrozen ? 'shadow-[1px_0_0_0_rgba(0,0,0,0.1)]' : ''}
@@ -372,7 +573,7 @@ export const Editor: React.FC<EditorProps> = ({
                   key={originalIndex} 
                   className={`
                     transition-colors group h-9
-                    ${draggedRowIndex === originalIndex ? 'opacity-50 bg-gray-100' : 'hover:bg-blue-50/30'}
+                    ${draggedRowIndex === originalIndex ? 'opacity-50 bg-gray-100' : ''}
                     ${dragOverIndex === originalIndex && draggedRowIndex !== null ? 'border-t-2 border-t-blue-500' : ''}
                   `}
                   style={rowStyle}
@@ -403,7 +604,9 @@ export const Editor: React.FC<EditorProps> = ({
                     const match = searchResults.some(m => m.r === originalIndex && m.c === colIndex);
                     const focused = focusResult?.r === originalIndex && focusResult?.c === colIndex;
                     const isFrozenCol = freezeCol !== null && colIndex <= freezeCol;
-                    
+                    const selected = isCellSelected(originalIndex, colIndex);
+                    const isEditing = editingCell?.r === originalIndex && editingCell?.c === colIndex;
+
                     // Intersection of Frozen Row + Frozen Col needs highest Z-Index for data cells
                     const cellZ = isFrozenCol && isFrozenRow ? 50 : isFrozenCol ? 20 : 0;
                     
@@ -419,28 +622,32 @@ export const Editor: React.FC<EditorProps> = ({
                         key={`${originalIndex}-${colIndex}`} 
                         className={`
                           border-b border-r border-gray-100 w-40 relative p-0
-                          ${focused ? 'ring-2 ring-inset ring-amber-500 z-30' : ''}
                           ${match && !focused ? 'bg-amber-100' : ''}
                           ${focused ? 'bg-amber-200' : ''}
-                          ${isFrozenRow || isFrozenCol ? 'bg-gray-50 font-medium' : 'bg-white'} 
+                          ${selected && !isEditing ? 'bg-blue-100/50' : (isFrozenRow || isFrozenCol ? 'bg-gray-50 font-medium' : 'bg-white')} 
+                          ${selected && !isEditing ? 'ring-1 ring-inset ring-blue-400' : ''}
                         `}
                         style={cellStyle}
-                        onClick={() => setEditingCell({ r: originalIndex, c: colIndex })}
+                        onMouseDown={(e) => handleCellMouseDown(e, originalIndex, colIndex)}
+                        onMouseEnter={() => handleCellMouseEnter(originalIndex, colIndex)}
+                        onDoubleClick={() => setEditingCell({ r: originalIndex, c: colIndex })}
                       >
-                        {editingCell?.r === originalIndex && editingCell?.c === colIndex ? (
+                        {isEditing ? (
                           <input
                             ref={inputRef}
                             type="text"
-                            className="w-full h-full p-2 outline-none bg-blue-50 text-blue-900 absolute inset-0 z-[60] focus:ring-2 focus:ring-inset focus:ring-blue-500"
+                            className="w-full h-full p-2 outline-none bg-white text-gray-900 absolute inset-0 z-[60] ring-2 ring-inset ring-blue-500 shadow-lg"
                             defaultValue={cell === null ? '' : String(cell)}
                             onBlur={(e) => {
                               handleCellChange(originalIndex, colIndex, e.target.value);
                               setEditingCell(null);
                             }}
-                            onKeyDown={(e) => handleKeyDown(e)}
+                            onKeyDown={(e) => handleKeyDownInput(e)}
+                            onMouseDown={(e) => e.stopPropagation()} // Allow text selection inside input
+                            onDoubleClick={(e) => e.stopPropagation()} // Prevent re-triggering parent double click
                           />
                         ) : (
-                          <div className="p-2 truncate cursor-text h-full w-full select-none text-gray-700">
+                          <div className="p-2 truncate cursor-default h-full w-full text-gray-700 pointer-events-none">
                             {cell === null ? <span className="text-gray-300 italic">null</span> : String(cell)}
                           </div>
                         )}
