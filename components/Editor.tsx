@@ -508,7 +508,10 @@ export const Editor: React.FC<EditorProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none">
-      <div className="flex-1 overflow-auto custom-scrollbar relative">
+      <div 
+        className="flex-1 overflow-auto custom-scrollbar relative"
+        onContextMenu={(e) => e.preventDefault()}
+      >
         <table className="border-collapse text-sm text-left table-fixed w-max">
           <thead className="bg-gray-50 sticky top-0 z-50 shadow-sm h-10">
             <tr>
@@ -645,6 +648,7 @@ export const Editor: React.FC<EditorProps> = ({
                             onKeyDown={(e) => handleKeyDownInput(e)}
                             onMouseDown={(e) => e.stopPropagation()} // Allow text selection inside input
                             onDoubleClick={(e) => e.stopPropagation()} // Prevent re-triggering parent double click
+                            onContextMenu={(e) => e.stopPropagation()} // Allow context menu in input
                           />
                         ) : (
                           <div className="p-2 truncate cursor-default h-full w-full text-gray-700 pointer-events-none">
