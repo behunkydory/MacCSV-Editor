@@ -386,9 +386,9 @@ export const Editor: React.FC<EditorProps> = ({
     setFilterMenu(null);
   };
 
-  // Handle Cmd+Click (Mac) as clean alternative to right-click
+  // Handle Cmd+Click (Mac) or Ctrl+Click (Windows) as alternative to right-click
   const handleClickWithModifier = (e: React.MouseEvent, type: 'row' | 'col', index: number) => {
-    if (e.metaKey) {
+    if (e.metaKey || e.ctrlKey) {
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({ type, index, x: e.clientX, y: e.clientY });
