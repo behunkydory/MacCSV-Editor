@@ -9,6 +9,7 @@ import { Features } from './components/Features';
 import { About } from './components/About';
 import { FAQ } from './components/FAQ';
 import { Footer } from './components/Footer';
+import { LanguageSwitch } from './components/LanguageSwitch';
 import { parseCSV, downloadCSV } from './services/csvService';
 import { CSVData } from './types';
 import { 
@@ -395,6 +396,10 @@ const App: React.FC = () => {
 
         {/* Toolbar - Now always visible even if data is empty, so users can add rows back */}
         <div className="flex items-center gap-2">
+            {data.length === 0 && !initialDataStr && (
+              <LanguageSwitch />
+            )}
+            
             <div className="flex bg-gray-100 rounded-lg p-0.5 mr-2">
               <button 
                 onClick={handleUndo} 
