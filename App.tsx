@@ -4,6 +4,9 @@ import { Editor } from './components/Editor';
 import { Button } from './components/Button';
 import { FindReplaceBar } from './components/FindReplaceBar';
 import { DiffViewer } from './components/DiffViewer';
+import { Hero } from './components/Hero';
+import { Features } from './components/Features';
+import { FAQ } from './components/FAQ';
 import { parseCSV, downloadCSV } from './services/csvService';
 import { CSVData } from './types';
 import { 
@@ -432,7 +435,7 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-hidden p-6 relative">
+      <main className="flex-1 overflow-y-auto p-6 relative">
         
         <FindReplaceBar 
           isOpen={showFind}
@@ -452,7 +455,7 @@ const App: React.FC = () => {
         />
 
         {data.length === 0 ? (
-          <div className="max-w-2xl mx-auto mt-20">
+          <div className="max-w-6xl mx-auto mt-12">
              {/* If we have a filename but no data (e.g. user deleted all), show empty state but keep editor mounted usually or show helper */}
              {initialDataStr ? (
                  <div className="h-full flex flex-col items-center justify-center text-gray-400 gap-4">
@@ -460,7 +463,12 @@ const App: React.FC = () => {
                     <Button onClick={appendRow} variant="secondary" icon={<Plus size={14} />}>Add First Row</Button>
                  </div>
              ) : (
-                <DropZone onFileLoaded={handleFileLoad} />
+                <div className="space-y-16">
+                  <Hero />
+                  <DropZone onFileLoaded={handleFileLoad} />
+                  <Features />
+                  <FAQ />
+                </div>
              )}
           </div>
         ) : (
