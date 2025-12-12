@@ -79,6 +79,25 @@ const App: React.FC = () => {
 
   // --- Undo / Redo / State Management ---
 
+  // Prevent browser context menu globally when data is loaded
+  useEffect(() => {
+    if (data.length === 0) return;
+    
+    const preventContextMenu = (e: MouseEvent) => {
+      // Check if we're inside the editor
+      const target = e.target as HTMLElement;
+      if (target.closest('.editor-container')) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    };
+
+    document.addEventListener('contextmenu', preventContextMenu, true);
+    return () => {
+      document.removeEventListener('contextmenu', preventContextMenu, true);
+    };
+  }, [data.length]);
+
   // Unified handler for ANY state change that should be undoable
   const handleStateChange = useCallback((
     updates: Partial<AppState>, 
