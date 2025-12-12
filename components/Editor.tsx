@@ -634,6 +634,7 @@ export const Editor: React.FC<EditorProps> = ({
                         onMouseDown={(e) => handleCellMouseDown(e, originalIndex, colIndex)}
                         onMouseEnter={() => handleCellMouseEnter(originalIndex, colIndex)}
                         onDoubleClick={() => setEditingCell({ r: originalIndex, c: colIndex })}
+                        onContextMenu={(e) => e.preventDefault()}
                       >
                         {isEditing ? (
                           <input
