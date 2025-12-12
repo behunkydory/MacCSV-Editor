@@ -507,7 +507,14 @@ export const Editor: React.FC<EditorProps> = ({
   if (data.length === 0) return <div className="flex items-center justify-center h-64 text-gray-400">No data</div>;
 
   return (
-    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none">
+    <div className="flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none"
+         onContextMenu={(e) => {
+           // Only prevent default if NOT clicking on the custom context menu itself
+           if (!e.target.closest('.context-menu-container')) {
+             e.preventDefault();
+           }
+         }}
+    >
       <div 
         className="flex-1 overflow-auto custom-scrollbar relative"
         onContextMenu={(e) => e.preventDefault()}
@@ -694,7 +701,7 @@ export const Editor: React.FC<EditorProps> = ({
 
       {contextMenu && (
         <div 
-          className="fixed bg-white/90 backdrop-blur-xl border border-gray-200 rounded-lg shadow-xl py-1 z-[100] w-56 text-sm"
+          className="context-menu-container fixed bg-white/90 backdrop-blur-xl border border-gray-200 rounded-lg shadow-xl py-1 z-[100] w-56 text-sm"
           style={{ top: Math.min(contextMenu.y, window.innerHeight - 300), left: Math.min(contextMenu.x, window.innerWidth - 220) }}
           onClick={(e) => e.stopPropagation()}
         >
