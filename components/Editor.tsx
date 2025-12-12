@@ -378,7 +378,10 @@ export const Editor: React.FC<EditorProps> = ({
   const handleContextMenu = (e: React.MouseEvent, type: 'row' | 'col', index: number) => {
     e.preventDefault();
     e.stopPropagation();
-    e.nativeEvent.stopImmediatePropagation();
+    if (e.nativeEvent) {
+      e.nativeEvent.preventDefault();
+      e.nativeEvent.stopImmediatePropagation();
+    }
     setContextMenu({ type, index, x: e.clientX, y: e.clientY });
     setFilterMenu(null);
   };
@@ -508,14 +511,7 @@ export const Editor: React.FC<EditorProps> = ({
   if (data.length === 0) return <div className="flex items-center justify-center h-64 text-gray-400">No data</div>;
 
   return (
-    <div className="editor-container flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none"
-         onContextMenu={(e) => {
-           // Only prevent default if NOT clicking on the custom context menu itself
-           if (!e.target.closest('.context-menu-container')) {
-             e.preventDefault();
-           }
-         }}
-    >
+    <div className="editor-container flex flex-col h-full bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden relative select-none">
       <div 
         className="flex-1 overflow-auto custom-scrollbar relative"
         onContextMenu={(e) => e.preventDefault()}
