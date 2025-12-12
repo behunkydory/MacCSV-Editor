@@ -81,20 +81,20 @@ const App: React.FC = () => {
 
   // Prevent browser context menu globally when data is loaded
   useEffect(() => {
-    if (data.length === 0) return;
-    
     const preventContextMenu = (e: MouseEvent) => {
-      // Check if we're inside the editor
+      // Check if we're inside the editor (only when data exists)
       const target = e.target as HTMLElement;
-      if (target.closest('.editor-container')) {
+      const editorContainer = target.closest('.editor-container');
+      if (editorContainer && data.length > 0) {
         e.preventDefault();
         e.stopPropagation();
+        return false;
       }
     };
 
-    document.addEventListener('contextmenu', preventContextMenu, true);
+    document.addEventListener('contextmenu', preventContextMenu, { capture: true });
     return () => {
-      document.removeEventListener('contextmenu', preventContextMenu, true);
+      document.removeEventListener('contextmenu', preventContextMenu, { capture: true });
     };
   }, [data.length]);
 
