@@ -386,6 +386,16 @@ export const Editor: React.FC<EditorProps> = ({
     setFilterMenu(null);
   };
 
+  // Handle Cmd+Click / Ctrl+Click as alternative to right-click
+  const handleClickWithModifier = (e: React.MouseEvent, type: 'row' | 'col', index: number) => {
+    if (e.metaKey || e.ctrlKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      setContextMenu({ type, index, x: e.clientX, y: e.clientY });
+      setFilterMenu(null);
+    }
+  };
+
   const insertRow = (targetIndex: number, position: 'before' | 'after') => {
     const colCount = data[0]?.length || 0;
     const newRow = new Array(colCount).fill('');
@@ -545,6 +555,7 @@ export const Editor: React.FC<EditorProps> = ({
                       e.stopPropagation();
                       handleContextMenu(e, 'col', colIndex);
                     }}
+                    onClick={(e) => handleClickWithModifier(e, 'col', colIndex)}
                   >
                     <div className="flex justify-between items-center px-1 h-full">
                       <div className="flex items-center gap-1 min-w-0 overflow-hidden">
@@ -605,6 +616,7 @@ export const Editor: React.FC<EditorProps> = ({
                       e.stopPropagation();
                       handleContextMenu(e, 'row', originalIndex);
                     }}
+                    onClick={(e) => handleClickWithModifier(e, 'row', originalIndex)}
                   >
                     <div className="flex items-center justify-center gap-0.5 group-hover:gap-1 relative h-full">
                        <span className="opacity-0 group-hover:opacity-100 transition-opacity absolute left-0">

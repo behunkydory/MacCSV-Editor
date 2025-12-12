@@ -489,7 +489,7 @@ const App: React.FC = () => {
                   <ArrowLeft size={16} /> Back to Upload
                 </button>
                 <div className="text-xs text-gray-400 italic">
-                  Tip: Drag headers/rows to reorder • Right-click to freeze
+                  Tip: Drag headers/rows to reorder • Cmd/Ctrl+Click or Right-click for options
                 </div>
              </div>
              <div className="flex-1 min-h-0">
