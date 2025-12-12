@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mac-csv-editor.netlify.app/sitemap.xml
