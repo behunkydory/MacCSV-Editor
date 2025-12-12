@@ -378,6 +378,7 @@ export const Editor: React.FC<EditorProps> = ({
   const handleContextMenu = (e: React.MouseEvent, type: 'row' | 'col', index: number) => {
     e.preventDefault();
     e.stopPropagation();
+    e.nativeEvent.stopImmediatePropagation();
     setContextMenu({ type, index, x: e.clientX, y: e.clientY });
     setFilterMenu(null);
   };
@@ -543,7 +544,11 @@ export const Editor: React.FC<EditorProps> = ({
                       ${isFrozen ? 'shadow-[1px_0_0_0_rgba(0,0,0,0.1)]' : ''}
                     `}
                     style={style}
-                    onContextMenu={(e) => handleContextMenu(e, 'col', colIndex)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleContextMenu(e, 'col', colIndex);
+                    }}
                   >
                     <div className="flex justify-between items-center px-1 h-full">
                       <div className="flex items-center gap-1 min-w-0 overflow-hidden">
@@ -599,7 +604,11 @@ export const Editor: React.FC<EditorProps> = ({
                       sticky left-0 z-40 w-12
                       ${isFrozenRow ? '!z-[55]' : ''} 
                     `}
-                    onContextMenu={(e) => handleContextMenu(e, 'row', originalIndex)}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleContextMenu(e, 'row', originalIndex);
+                    }}
                   >
                     <div className="flex items-center justify-center gap-0.5 group-hover:gap-1 relative h-full">
                        <span className="opacity-0 group-hover:opacity-100 transition-opacity absolute left-0">
