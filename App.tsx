@@ -10,6 +10,7 @@ import { About } from './components/About';
 import { FAQ } from './components/FAQ';
 import { Footer } from './components/Footer';
 import { LanguageSwitch } from './components/LanguageSwitch';
+import { PrivacyPolicy } from './components/PrivacyPolicy';
 import { parseCSV, downloadCSV } from './services/csvService';
 import { CSVData } from './types';
 import { 
@@ -49,6 +50,9 @@ const App: React.FC = () => {
 
   // Search & Diff State
   const [isDiffOpen, setIsDiffOpen] = useState(false);
+  
+  // Privacy Policy State
+  const [showPrivacyPolicy, setShowPrivacyPolicy] = useState(false);
 
   // Search & Replace State
   const [showFind, setShowFind] = useState(false);
@@ -364,6 +368,11 @@ const App: React.FC = () => {
     }
   };
 
+  // Show Privacy Policy page if requested
+  if (showPrivacyPolicy) {
+    return <PrivacyPolicy onBack={() => setShowPrivacyPolicy(false)} />;
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-[#f5f5f7] text-gray-900 font-sans relative">
       {/* Header */}
@@ -475,7 +484,7 @@ const App: React.FC = () => {
                   <Features />
                   <About />
                   <FAQ />
-                  <Footer />
+                  <Footer onPrivacyClick={() => setShowPrivacyPolicy(true)} />
                 </div>
              )}
           </div>

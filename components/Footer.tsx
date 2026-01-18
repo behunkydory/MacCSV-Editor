@@ -2,7 +2,11 @@ import React from 'react';
 import { Github, Heart, Mail } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
-export const Footer: React.FC = () => {
+interface FooterProps {
+  onPrivacyClick?: () => void;
+}
+
+export const Footer: React.FC<FooterProps> = ({ onPrivacyClick }) => {
   const { t } = useLanguage();
   
   return (
@@ -19,6 +23,14 @@ export const Footer: React.FC = () => {
           </div>
           
           <div className="flex items-center gap-6">
+            {onPrivacyClick && (
+              <button
+                onClick={onPrivacyClick}
+                className="text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                Privacy Policy
+              </button>
+            )}
             <a 
               href="https://github.com/behunkydory/MacCSV-Editor" 
               target="_blank" 
